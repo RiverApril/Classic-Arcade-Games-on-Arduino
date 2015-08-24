@@ -44,6 +44,7 @@ TFT screen = TFT(PIN_CS, PIN_DC, PIN_RESET);
 #define TILE_GATE 2
 #define TILE_PELLET 3
 #define TILE_POWER_PELLET 4
+#define TILE_CAGE 5
 
 #define LEVEL_WIDTH 28
 #define LEVEL_HEIGHT 31
@@ -57,6 +58,8 @@ TFT screen = TFT(PIN_CS, PIN_DC, PIN_RESET);
 
 #define solid(x, y) ((tile(x, y)==TILE_WALL)||(tile(x, y)==TILE_GATE))
 
+#define cageUpSolid(x, y) ((tile(x, y)==TILE_WALL))
+
 #define DIR_LEFT 0
 #define DIR_RIGHT 1
 #define DIR_UP 2
@@ -69,6 +72,7 @@ TFT screen = TFT(PIN_CS, PIN_DC, PIN_RESET);
 #define GHOST_ORANGE 3
 
 #define SPEED_PACMAN 1
+#define SPEED_GHOST 1
 
 byte grid[LEVEL_HEIGHT][LEVEL_WIDTH] = {
 {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -84,9 +88,9 @@ byte grid[LEVEL_HEIGHT][LEVEL_WIDTH] = {
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 1, 1, 1, 2, 2, 1, 1, 1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
-{1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
-{0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,  },
-{1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
+{1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
+{0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,  },
+{1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
@@ -176,8 +180,11 @@ void setup() {
     ghostLastX[i] = ghostX[i];
     ghostLastY[i] = ghostY[i];
     ghostDir[i] = DIR_NONE;
-    ghostScared[i] = false;
+    ghostMode[i] = 2;
   }
+  
+  ghostDir[GHOST_RED] = DIR_LEFT;
+  ghostDir[GHOST_PINK] = DIR_LEFT;
 }
 
 void loop() {
@@ -216,6 +223,10 @@ void loop() {
       pacFrame = 1;
     }
   }
+  
+  //Scared = ?1 = 1 or 3
+  //Chase = b10 = 2
+  //Scatter = b00 = 0
 
   //mode | 2 = (00 or 01) to (10 or 11)
   //mode & 1 = (10 or 11) to (00 or 01)
@@ -225,54 +236,73 @@ void loop() {
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] | 2;
       }
+      break;
     }
     case (7):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] & 1;
+        ghostDir[GHOST_BLUE] = DIR_RIGHT;
       }
+      break;
     }
     case (7+20):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] | 2;
+        ghostDir[GHOST_ORANGE] = DIR_LEFT;
       }
+      break;
     }
     case (7+20+7):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] & 1;
       }
+      break;
     }
     case (7+20+7+20):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] | 2;
       }
+      break;
     }
     case (7+20+7+20+5):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] & 1;
       }
+      break;
     }
     case (7+20+7+20+5+20):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] | 2;
       }
+      break;
     }
     case (7+20+7+20+5+20+5):{
       for(byte i=0;i<4;i++){
         ghostMode[i] = ghostMode[i] & 1;
       }
+      break;
     }
   }
 
   if(millis() - lastMillis > 1000){
     timer++;
+    lastMillis = millis();
   }
   
   if(tick % 5 == 0){
 
-    if(pacX==0){
+    if(pacX == 0){
       pacX = (LEVEL_WIDTH-1)*4;
-    }else if(pacX==(LEVEL_WIDTH-1)*4){
+    }else if(pacX == (LEVEL_WIDTH-1)*4){
       pacX = 0;
+    }
+    
+    for(byte i = 0;i<4;i++){
+      if(ghostX[i] == 0){
+        ghostX[i] = (LEVEL_WIDTH-1)*4;
+      }else if(ghostX[i] == (LEVEL_WIDTH-1)*4){
+        ghostX[i] = 0;
+      }
     }
     
     drawTile(pacLastX >> 2, pacLastY >> 2);
@@ -314,7 +344,10 @@ void loop() {
       pacX = (pacX >> 2) << 2;
     }
 
-    
+    ghostAi(0);
+    ghostAi(1);
+    ghostAi(2);
+    ghostAi(3);
     
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
@@ -330,10 +363,120 @@ void loop() {
   
 }
 
+void ghostAi(byte i){
+  
+  if(ghostDir[i] == DIR_NONE){
+    return;
+  }
+  
+  byte targetX;
+  byte targetY;
+  
+  if(ghostMode[i] == 2){ //not scared and chase mode
+    targetX = pacX;
+    targetY = pacY;
+  }else if(ghostMode[i] == 0){ //net scared and scatter mode
+    switch(i){
+      case GHOST_RED:{
+        targetX = LEVEL_WIDTH * 4;
+        targetY = 0;
+      }
+      case GHOST_BLUE:{
+        targetX = LEVEL_WIDTH * 4;
+        targetY = LEVEL_HEIGHT * 4;
+      }
+      case GHOST_PINK:{
+        targetX = 0;
+        targetY = 0;
+      }
+      case GHOST_ORANGE:{
+        targetX = 0;
+        targetY = LEVEL_HEIGHT * 4;
+      }
+    }
+  }else{
+    //Scared mode TODO
+  }
+    
+  //Empty directions
+  bool left = !solid((ghostX[i]-1) >> 2, ghostY[i] >> 2);
+  bool right = !solid((ghostX[i] >> 2)+1, ghostY[i] >> 2);
+  bool up = !cageUpSolid(ghostX[i] >> 2, (ghostY[i]-1) >> 2);
+  bool down = !solid(ghostX[i] >> 2, (ghostY[i] >> 2)+1);
+  
+  if(tile(ghostX[i] >> 2, ghostY[i] >> 2) == TILE_CAGE || tile(ghostX[i] >> 2, ghostY[i] >> 2) == TILE_GATE){
+    if(ghostX[i] < LEVEL_WIDTH/2){
+      ghostDir[i] = DIR_RIGHT;
+    }else if(ghostX[i] < LEVEL_WIDTH/2){
+      ghostDir[i] = DIR_LEFT;
+    }else{
+      ghostDir[i] = DIR_UP;
+    }
+    
+  }else{
+    
+    if(ghostX[i]%4==0 && ghostY[i]%4==0){
+    
+      if((ghostDir[i] == DIR_LEFT) || (ghostDir[i] == DIR_RIGHT)){
+        short upDist = distSqr(ghostX[i], ghostY[i]-4, targetX, targetY);
+        short downDist = distSqr(ghostX[i], ghostY[i]+4, targetX, targetY);
+        short straitDist = distSqr(ghostX[i]+(ghostDir[i] == DIR_LEFT?-4:4), ghostY[i], targetX, targetY);
+        if((ghostDir[i] == DIR_LEFT?left:right) && straitDist < upDist && straitDist < downDist){
+          
+        }else{
+          if(up && down){
+            ghostDir[i] = upDist < downDist ? DIR_UP : DIR_DOWN;
+          }else if(up){
+            ghostDir[i] = DIR_UP;
+          }else if(down){
+            ghostDir[i] = DIR_DOWN;
+          }
+        }
+      } else if((ghostDir[i] == DIR_UP) || (ghostDir[i] == DIR_DOWN)){
+        short leftDist = distSqr(ghostX[i]-4, ghostY[i], targetX, targetY);
+        short rightDist = distSqr(ghostX[i]+4, ghostY[i], targetX, targetY);
+        short straitDist = distSqr(ghostX[i], ghostY[i]+(ghostDir[i] == DIR_UP?-4:4), targetX, targetY);
+        if((ghostDir[i] == DIR_UP?up:down) && straitDist < leftDist && straitDist < rightDist){
+          
+        }else{
+          if(left && right){
+            ghostDir[i] = leftDist < rightDist ? DIR_LEFT : DIR_RIGHT;
+          }else if(left){
+            ghostDir[i] = DIR_LEFT;
+          }else if(right){
+            ghostDir[i] = DIR_RIGHT;
+          }
+        }
+      }
+    
+    }
+  
+  }
+  
+  if(ghostDir[i] == DIR_LEFT && left){
+    ghostX[i] -= SPEED_GHOST;
+    ghostY[i] = (ghostY[i] >> 2) << 2;
+  }else if(ghostDir[i] == DIR_RIGHT && right){
+    ghostX[i] += SPEED_GHOST;
+    ghostY[i] = (ghostY[i] >> 2) << 2;
+  }else if(ghostDir[i] == DIR_UP && up){
+    ghostY[i] -= SPEED_GHOST;
+    ghostX[i] = (ghostX[i] >> 2) << 2;
+  }else if(ghostDir[i] == DIR_DOWN && down){
+    ghostY[i] += SPEED_GHOST;
+    ghostX[i] = (ghostX[i] >> 2) << 2;
+  }
+  
+}
+
+short distSqr(short x1, short y1, short x2, short y2){
+  return ((x2-x1)*(x2-x1))+((y2-y1)*(y2-y1));
+}
+
 void drawGhost(byte i){
   screen.noStroke();
   
-  if(ghostScared[i]){
+  if(ghostMode[i] & 1){
     screen.fill(0, 0, 255);
   }else{
     switch(i){
@@ -360,8 +503,8 @@ void drawGhost(byte i){
   screen.stroke(0, 0, 0);
   screen.point(ghostX[i], ghostY[i]);
   screen.point(ghostX[i]+3, ghostY[i]);
-  screen.point(ghostX[i]+((tick>>2)&1), ghostY[i]+3);
-  screen.point(ghostX[i]+((tick>>2)&1)+2, ghostY[i]+3);
+  screen.point(ghostX[i]+((tick>>4)&1), ghostY[i]+3);
+  screen.point(ghostX[i]+((tick>>4)&1)+2, ghostY[i]+3);
   
 }
 
@@ -502,6 +645,9 @@ void drawTile(byte x, byte y){
       screen.point(x4+3, y4);
       screen.point(x4, y4+3);
       screen.point(x4+3, y4+3);
+      break;
+    }
+    case TILE_CAGE:{
       break;
     }
   }
