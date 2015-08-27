@@ -74,6 +74,8 @@ TFT screen = TFT(PIN_CS, PIN_DC, PIN_RESET);
 #define SPEED_PACMAN 1
 #define SPEED_GHOST 1
 
+char textBuffer[10];
+
 byte grid[LEVEL_HEIGHT][LEVEL_WIDTH] = {
 {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 {1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1},
@@ -89,7 +91,7 @@ byte grid[LEVEL_HEIGHT][LEVEL_WIDTH] = {
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 1, 1, 1, 2, 2, 1, 1, 1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
-{0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,  },
+{0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0},
 {1, 1, 1, 1, 1, 1, 3, 1, 1, 0, 1, 5, 5, 5, 5, 5, 5, 1, 0, 1, 1, 3, 1, 1, 1, 1, 1, 1},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
 {0, 0, 0, 0, 0, 1, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 1, 0, 0, 0, 0, 0},
@@ -125,6 +127,7 @@ byte ghostDir[4] = {0, 0, 0, 0};
 byte ghostMode[4] = {0, 0, 0, 0};
 
 int score = 0;
+int dotsEaten = 0;
 byte lives = 0;
 int timer = 0;
 long lastMillis = 0;
@@ -154,6 +157,7 @@ void setup() {
   drawMap();
   
   score = 0;
+  dotsEaten = 0;
   lives = 3;
   timer = 0;
   
@@ -234,59 +238,76 @@ void loop() {
   switch(timer){
     case 0:{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
+        ghostMode[i] = ghostMode[i] & 1;
       }
       break;
     }
     case (7):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
-        ghostDir[GHOST_BLUE] = DIR_RIGHT;
+        ghostMode[i] = ghostMode[i] | 2;
       }
       break;
     }
     case (7+20):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
-        ghostDir[GHOST_ORANGE] = DIR_LEFT;
+        ghostMode[i] = ghostMode[i] & 1;
       }
       break;
     }
     case (7+20+7):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
+        ghostMode[i] = ghostMode[i] | 2;
       }
       break;
     }
     case (7+20+7+20):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
+        ghostMode[i] = ghostMode[i] & 1;
       }
       break;
     }
     case (7+20+7+20+5):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
+        ghostMode[i] = ghostMode[i] | 2;
       }
       break;
     }
     case (7+20+7+20+5+20):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
+        ghostMode[i] = ghostMode[i] & 1;
       }
       break;
     }
     case (7+20+7+20+5+20+5):{
       for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
+        ghostMode[i] = ghostMode[i] | 2;
       }
       break;
     }
   }
+  
+  if(dotsEaten > 30 && ghostDir[GHOST_BLUE] == DIR_NONE){
+    ghostDir[GHOST_BLUE] = DIR_LEFT;
+  }
+  
+  if(dotsEaten > (240/3) && ghostDir[GHOST_ORANGE] == DIR_NONE){
+    ghostDir[GHOST_ORANGE] = DIR_LEFT;
+  }
+  
 
-  if(millis() - lastMillis > 1000){
+  /*if(millis() - lastMillis > 1000){
     timer++;
     lastMillis = millis();
+  }*/
+  
+  screen.noStroke();
+  screen.fill(0, 0, 0);
+  screen.rect((LEVEL_WIDTH*4)+2, 2, 4*7, 5);
+  screen.stroke(255, 255, 255);
+  printToScreen(tick, (LEVEL_WIDTH*4)+2, 2);
+  
+  if(tick % 15 == 0){
+    timer++;
   }
   
   if(tick % 5 == 0){
@@ -344,13 +365,14 @@ void loop() {
       pacX = (pacX >> 2) << 2;
     }
 
-    ghostAi(0);
-    ghostAi(1);
-    ghostAi(2);
-    ghostAi(3);
+    ghostAi(GHOST_RED);
+    ghostAi(GHOST_BLUE);
+    ghostAi(GHOST_PINK);
+    ghostAi(GHOST_ORANGE);
     
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
+      dotsEaten++;
       score++;
     }
     
@@ -373,30 +395,127 @@ void ghostAi(byte i){
   byte targetY;
   
   if(ghostMode[i] == 2){ //not scared and chase mode
-    targetX = pacX;
-    targetY = pacY;
+    switch(i){
+      case GHOST_RED:{
+        targetX = pacX;
+        targetY = pacY;
+        break;
+      }
+      case GHOST_BLUE:{
+        switch(pacDir){
+          case DIR_LEFT:{
+            targetX = pacX-8;
+            targetY = pacY;
+            break;
+          }
+          case DIR_RIGHT:{
+            targetX = pacX+8;
+            targetY = pacY;
+            break;
+          }
+          case DIR_UP:{
+            targetX = pacX-8;
+            targetY = pacY-8;
+            break;
+          }
+          case DIR_DOWN:{
+            targetX = pacX;
+            targetY = pacY+8;
+            break;
+          }
+        }
+        
+        targetX = targetX - ghostX[GHOST_RED];
+        targetY = targetY - ghostY[GHOST_RED];
+        
+        targetX = ghostX[GHOST_RED] + (targetX * 2);
+        targetY = ghostY[GHOST_RED] + (targetY * 2);
+        
+        break;
+      }
+      case GHOST_PINK:{
+        switch(pacDir){
+          case DIR_LEFT:{
+            targetX = pacX-16;
+            targetY = pacY;
+            break;
+          }
+          case DIR_RIGHT:{
+            targetX = pacX+16;
+            targetY = pacY;
+            break;
+          }
+          case DIR_UP:{
+            targetX = pacX-16;
+            targetY = pacY-16;
+            break;
+          }
+          case DIR_DOWN:{
+            targetX = pacX;
+            targetY = pacY+16;
+            break;
+          }
+        }
+        break;
+      }
+      case GHOST_ORANGE:{
+        if(sqrt(dist(ghostX[i], ghostY[i], pacX, pacY)) > 8*4){
+          targetX = pacX;
+          targetY = pacY;
+        }else{
+          targetX = 0;
+          targetY = (LEVEL_HEIGHT-1) * 4;
+        }
+        break;
+      }
+    }
   }else if(ghostMode[i] == 0){ //net scared and scatter mode
     switch(i){
       case GHOST_RED:{
-        targetX = LEVEL_WIDTH * 4;
+        targetX = (LEVEL_WIDTH-1) * 4;
         targetY = 0;
+        break;
       }
       case GHOST_BLUE:{
-        targetX = LEVEL_WIDTH * 4;
-        targetY = LEVEL_HEIGHT * 4;
+        targetX = (LEVEL_WIDTH-1) * 4;
+        targetY = (LEVEL_HEIGHT-1) * 4;
+        break;
       }
       case GHOST_PINK:{
         targetX = 0;
         targetY = 0;
+        break;
       }
       case GHOST_ORANGE:{
         targetX = 0;
-        targetY = LEVEL_HEIGHT * 4;
+        targetY = (LEVEL_HEIGHT-1) * 4;
+        break;
       }
     }
   }else{
     //Scared mode TODO
   }
+  
+  /*screen.noStroke();
+  switch(i){
+    case GHOST_RED:{
+      screen.fill(255, 0, 0);
+      break;
+    }
+    case GHOST_BLUE:{
+      screen.fill(0, 255, 255);
+      break;
+    }
+    case GHOST_PINK:{
+      screen.fill(255, 127, 127);
+      break;
+    }
+    case GHOST_ORANGE:{
+      screen.fill(255, 127, 0);
+      break;
+    }
+  }
+  screen.rect(targetX, targetY, 4, 4);*/
     
   //Empty directions
   bool left = !solid((ghostX[i]-1) >> 2, ghostY[i] >> 2);
@@ -405,9 +524,9 @@ void ghostAi(byte i){
   bool down = !solid(ghostX[i] >> 2, (ghostY[i] >> 2)+1);
   
   if(tile(ghostX[i] >> 2, ghostY[i] >> 2) == TILE_CAGE || tile(ghostX[i] >> 2, ghostY[i] >> 2) == TILE_GATE){
-    if(ghostX[i] < LEVEL_WIDTH/2){
+    if(ghostX[i] < LEVEL_WIDTH*4/2){
       ghostDir[i] = DIR_RIGHT;
-    }else if(ghostX[i] < LEVEL_WIDTH/2){
+    }else if(ghostX[i] > LEVEL_WIDTH*4/2){
       ghostDir[i] = DIR_LEFT;
     }else{
       ghostDir[i] = DIR_UP;
@@ -418,14 +537,15 @@ void ghostAi(byte i){
     if(ghostX[i]%4==0 && ghostY[i]%4==0){
     
       if((ghostDir[i] == DIR_LEFT) || (ghostDir[i] == DIR_RIGHT)){
-        short upDist = distSqr(ghostX[i], ghostY[i]-4, targetX, targetY);
-        short downDist = distSqr(ghostX[i], ghostY[i]+4, targetX, targetY);
-        short straitDist = distSqr(ghostX[i]+(ghostDir[i] == DIR_LEFT?-4:4), ghostY[i], targetX, targetY);
-        if((ghostDir[i] == DIR_LEFT?left:right) && straitDist < upDist && straitDist < downDist){
+        short upDist = dist(ghostX[i], ghostY[i]-4, targetX, targetY);
+        short downDist = dist(ghostX[i], ghostY[i]+4, targetX, targetY);
+        short straitDist = dist(ghostX[i]+(ghostDir[i] == DIR_LEFT?-4:4), ghostY[i], targetX, targetY);
+        
+        if((ghostDir[i] == DIR_LEFT?left:right) && (straitDist < upDist || !up) && (straitDist < downDist || !down)){
           
         }else{
           if(up && down){
-            ghostDir[i] = upDist < downDist ? DIR_UP : DIR_DOWN;
+            ghostDir[i] = (upDist < downDist) ? DIR_UP : DIR_DOWN;
           }else if(up){
             ghostDir[i] = DIR_UP;
           }else if(down){
@@ -433,14 +553,15 @@ void ghostAi(byte i){
           }
         }
       } else if((ghostDir[i] == DIR_UP) || (ghostDir[i] == DIR_DOWN)){
-        short leftDist = distSqr(ghostX[i]-4, ghostY[i], targetX, targetY);
-        short rightDist = distSqr(ghostX[i]+4, ghostY[i], targetX, targetY);
-        short straitDist = distSqr(ghostX[i], ghostY[i]+(ghostDir[i] == DIR_UP?-4:4), targetX, targetY);
-        if((ghostDir[i] == DIR_UP?up:down) && straitDist < leftDist && straitDist < rightDist){
+        short leftDist = dist(ghostX[i]-4, ghostY[i], targetX, targetY);
+        short rightDist = dist(ghostX[i]+4, ghostY[i], targetX, targetY);
+        short straitDist = dist(ghostX[i], ghostY[i]+(ghostDir[i] == DIR_UP?-4:4), targetX, targetY);
+        if((ghostDir[i] == DIR_UP?up:down) && (straitDist < leftDist || !left) && (straitDist < rightDist || !right)){
           
         }else{
+          
           if(left && right){
-            ghostDir[i] = leftDist < rightDist ? DIR_LEFT : DIR_RIGHT;
+            ghostDir[i] = (leftDist < rightDist) ? DIR_LEFT : DIR_RIGHT;
           }else if(left){
             ghostDir[i] = DIR_LEFT;
           }else if(right){
@@ -469,8 +590,8 @@ void ghostAi(byte i){
   
 }
 
-short distSqr(short x1, short y1, short x2, short y2){
-  return ((x2-x1)*(x2-x1))+((y2-y1)*(y2-y1));
+short dist(short x1, short y1, short x2, short y2){
+  return ((abs(x2-x1)*abs(x2-x1))+(abs(y2-y1)*abs(y2-y1)));
 }
 
 void drawGhost(byte i){
@@ -652,5 +773,184 @@ void drawTile(byte x, byte y){
     }
   }
   
+}
+
+void printToScreen(int a, short x, short y){
+  int p = -1;
+  byte i;
+  for(i=0;p<a;i++){
+    p = pow(10, i);
+  }
+  short mx = (i-1)*4;
+  p = -1;
+  for(i=0;p<a;i++){
+    p = pow(10, i);
+    printDigit( (a/p)%10, x+mx-(4*i), y);
+  }
+}
+
+void printDigit(byte a, short x, short y){
+  switch(a){
+    case 0:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 1:{
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 2:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 3:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y+1);
+      
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 4:{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+1, y+2);
+      
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 5:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 6:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 7:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 8:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 9:{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+  }
 }
 
