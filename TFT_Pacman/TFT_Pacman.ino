@@ -71,6 +71,12 @@ TFT screen = TFT(PIN_CS, PIN_DC, PIN_RESET);
 #define GHOST_PINK 2
 #define GHOST_ORANGE 3
 
+#define GHOST_TIME_SCARED 100
+#define GHOST_TIME_FLASHING 20
+
+#define LOOP_DELAY 8
+
+
 #define SPEED_PACMAN 1
 #define SPEED_GHOST 1
 
@@ -124,16 +130,19 @@ byte ghostY[4] = {0, 0, 0, 0};
 byte ghostLastX[4] = {0, 0, 0, 0};
 byte ghostLastY[4] = {0, 0, 0, 0};
 byte ghostDir[4] = {0, 0, 0, 0};
-byte ghostMode[4] = {0, 0, 0, 0};
+byte ghostScaredTime[4] = {0, 0, 0, 0};
+bool ghostChase = false;
 
-int score = 0;
-int dotsEaten = 0;
+unsigned int score = 0;
+unsigned int lastScore = 0;
+unsigned int dotsEaten = 0;
 byte lives = 0;
-int timer = 0;
+byte lastLives = 0;
+unsigned int timer = 0;
 long lastMillis = 0;
+char deathTimer = -1;
 
 void setup() {
-  Serial.begin(9600);
 
   pinMode(PIN_BUTTON_STICK, INPUT);
   digitalWrite(PIN_BUTTON_STICK, HIGH);
@@ -157,38 +166,14 @@ void setup() {
   drawMap();
   
   score = 0;
+  lastScore = 255;
   dotsEaten = 0;
   lives = 3;
-  timer = 0;
+  lastLives = 0;
+  deathTimer = -1;
   
-  pacX = (13*4)+2;
-  pacY = 23*4;
-  pacDir = DIR_NONE;
-  pacLastX = pacX;
-  pacLastY = pacY;
-  pacFrame = 0;
+  resetPositions();
   
-  ghostX[GHOST_RED] = (13*4)+2;
-  ghostY[GHOST_RED] = 11*4;
-  
-  ghostX[GHOST_BLUE] = (11*4)+2;
-  ghostY[GHOST_BLUE] = 14*4;
-  
-  ghostX[GHOST_PINK] = (13*4)+2;
-  ghostY[GHOST_PINK] = 14*4;
-  
-  ghostX[GHOST_ORANGE] = (15*4)+2;
-  ghostY[GHOST_ORANGE] = 14*4;
-  
-  for(byte i=0;i<4;i++){
-    ghostLastX[i] = ghostX[i];
-    ghostLastY[i] = ghostY[i];
-    ghostDir[i] = DIR_NONE;
-    ghostMode[i] = 2;
-  }
-  
-  ghostDir[GHOST_RED] = DIR_LEFT;
-  ghostDir[GHOST_PINK] = DIR_LEFT;
 }
 
 void loop() {
@@ -219,7 +204,7 @@ void loop() {
     pacDir = DIR_DOWN;
   }
   
-  delay(10);
+  delay(LOOP_DELAY);
   
   if(tick % 15 == 0){
     pacFrame++;
@@ -228,60 +213,37 @@ void loop() {
     }
   }
   
-  //Scared = ?1 = 1 or 3
-  //Chase = b10 = 2
-  //Scatter = b00 = 0
-
-  //mode | 2 = (00 or 01) to (10 or 11)
-  //mode & 1 = (10 or 11) to (00 or 01)
-  
   switch(timer){
     case 0:{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
-      }
+      ghostChase = false;
       break;
     }
     case (7):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
-      }
+      ghostChase = true;
       break;
     }
     case (7+20):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
-      }
+      ghostChase = false;
       break;
     }
     case (7+20+7):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
-      }
+      ghostChase = true;
       break;
     }
     case (7+20+7+20):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
-      }
+      ghostChase = false;
       break;
     }
     case (7+20+7+20+5):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
-      }
+      ghostChase = true;
       break;
     }
     case (7+20+7+20+5+20):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] & 1;
-      }
+      ghostChase = false;
       break;
     }
     case (7+20+7+20+5+20+5):{
-      for(byte i=0;i<4;i++){
-        ghostMode[i] = ghostMode[i] | 2;
-      }
+      ghostChase = true;
       break;
     }
   }
@@ -300,11 +262,38 @@ void loop() {
     lastMillis = millis();
   }*/
   
-  screen.noStroke();
-  screen.fill(0, 0, 0);
-  screen.rect((LEVEL_WIDTH*4)+2, 2, 4*7, 5);
-  screen.stroke(255, 255, 255);
-  printToScreen(tick, (LEVEL_WIDTH*4)+2, 2);
+  if(lastScore != score){
+    screen.noStroke();
+    screen.fill(0, 0, 0);
+    screen.rect((LEVEL_WIDTH*4)+2, 10, 4*7, 5);
+    screen.stroke(255, 255, 255);
+    printToScreen(score, (LEVEL_WIDTH*4)+2, 10);
+  }
+  lastScore = score;
+  
+  if(lastLives != lives){
+    screen.noStroke();
+    screen.fill(0, 0, 0);
+    screen.rect((LEVEL_WIDTH*4), 2, WIDTH-(LEVEL_WIDTH*4), 4);
+    for(byte i=0;i<lives;i++){
+      byte x = (LEVEL_WIDTH*4) + i*6;
+      byte y = 2;
+      screen.noStroke();
+      screen.fill(COLOR_R_PACMAN, COLOR_G_PACMAN, COLOR_B_PACMAN);
+      screen.rect(x, y, 4, 4);
+      screen.stroke(0, 0, 0);
+      screen.point(x, y);
+      screen.point(x+3, y);
+      screen.point(x, y+3);
+      screen.point(x+3, y+3);
+      
+      screen.point(x, y+1);
+      screen.point(x+1, y+1);
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+    }
+  }
+  lastLives = lives;
   
   if(tick % 15 == 0){
     timer++;
@@ -350,25 +339,55 @@ void loop() {
     pacLastX = pacX;
     pacLastY = pacY;
     
+    if(deathTimer < 0){
   
-    if(pacDir == DIR_LEFT && !solid((pacX-1) >> 2, pacY >> 2)){
-      pacX -= SPEED_PACMAN;
-      pacY = (pacY >> 2) << 2;
-    }else if(pacDir == DIR_RIGHT && !solid((pacX >> 2)+1, pacY >> 2)){
-      pacX += SPEED_PACMAN;
-      pacY = (pacY >> 2) << 2;
-    }else if(pacDir == DIR_UP && !solid(pacX >> 2, (pacY-1) >> 2)){
-      pacY -= SPEED_PACMAN;
-      pacX = (pacX >> 2) << 2;
-    }else if(pacDir == DIR_DOWN && !solid(pacX >> 2, (pacY >> 2)+1)){
-      pacY += SPEED_PACMAN;
-      pacX = (pacX >> 2) << 2;
+      if(pacDir == DIR_LEFT && !solid((pacX-1) >> 2, pacY >> 2)){
+        pacX -= SPEED_PACMAN;
+        pacY = (pacY >> 2) << 2;
+      }else if(pacDir == DIR_RIGHT && !solid((pacX >> 2)+1, pacY >> 2)){
+        pacX += SPEED_PACMAN;
+        pacY = (pacY >> 2) << 2;
+      }else if(pacDir == DIR_UP && !solid(pacX >> 2, (pacY-1) >> 2)){
+        pacY -= SPEED_PACMAN;
+        pacX = (pacX >> 2) << 2;
+      }else if(pacDir == DIR_DOWN && !solid(pacX >> 2, (pacY >> 2)+1)){
+        pacY += SPEED_PACMAN;
+        pacX = (pacX >> 2) << 2;
+      }
+    
+      for(byte i=0;i<4;i++){
+        if(abs(pacX - ghostX[i]) < 2 && abs(pacY - ghostY[i]) < 2){
+          if(ghostScaredTime[i] > 0){
+            resetGhost(i);
+          }else{
+            deathTimer = 20;
+            pacFrame = 4;
+          }
+        }
+      }
+      
+      for(byte i=0;i<4;i++){
+        if(ghostScaredTime[i] > 1){
+          ghostScaredTime[i]--;
+        }else if(ghostScaredTime[i] == 1){
+          ghostScaredTime[i] = 0;
+        }
+        if(ghostScaredTime[i] == 0 || ghostScaredTime[i] % 2 == 0){
+          ghostAi(i);
+        }
+      }
+    
+    } else {
+      if(deathTimer == 0){
+        if(lives == 0){
+          gameOver();
+        }else{
+          lives--;
+        }
+        resetPositions();
+      }
+      deathTimer--;
     }
-
-    ghostAi(GHOST_RED);
-    ghostAi(GHOST_BLUE);
-    ghostAi(GHOST_PINK);
-    ghostAi(GHOST_ORANGE);
     
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
@@ -379,10 +398,65 @@ void loop() {
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_POWER_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
       
-      score += 10;
+      score += 5;
+      for(byte i=0;i<4;i++){
+        ghostScaredTime[i] = GHOST_TIME_SCARED;
+      }
     }
   }
   
+}
+
+void resetPositions(){
+  timer = 0;
+  
+  pacX = (13*4)+2;
+  pacY = 23*4;
+  pacDir = DIR_NONE;
+  pacFrame = 0;
+  
+  for(byte i=0;i<4;i++){
+    resetGhost(i);
+  }
+  
+}
+
+void resetGhost(byte i){
+  switch(i){
+    case GHOST_RED:{
+      ghostX[GHOST_RED] = (13*4)+2;
+      ghostY[GHOST_RED] = 11*4;
+      ghostDir[GHOST_RED] = DIR_LEFT;
+      break;
+    }
+    case GHOST_BLUE:{
+      ghostX[GHOST_BLUE] = (11*4)+2;
+      ghostY[GHOST_BLUE] = 14*4;
+      ghostDir[GHOST_BLUE] = DIR_NONE;
+      break;
+    }
+    case GHOST_PINK:{
+      ghostX[GHOST_PINK] = (13*4)+2;
+      ghostY[GHOST_PINK] = 14*4;
+      ghostDir[GHOST_PINK] = DIR_LEFT;
+      break;
+    }
+    case GHOST_ORANGE:{
+      ghostX[GHOST_ORANGE] = (15*4)+2;
+      ghostY[GHOST_ORANGE] = 14*4;
+      ghostDir[GHOST_ORANGE] = DIR_NONE;
+      break;
+    }
+  }
+  
+  ghostScaredTime[i] = 0;
+  
+}
+
+void gameOver(){
+  while(true){
+    
+  }
 }
 
 void ghostAi(byte i){
@@ -394,7 +468,11 @@ void ghostAi(byte i){
   byte targetX;
   byte targetY;
   
-  if(ghostMode[i] == 2){ //not scared and chase mode
+  if(ghostScaredTime[i] > 0){
+      targetX = 255-pacX;
+      targetY = 255-pacY;
+      
+  }else if(ghostChase){
     switch(i){
       case GHOST_RED:{
         targetX = pacX;
@@ -469,7 +547,7 @@ void ghostAi(byte i){
         break;
       }
     }
-  }else if(ghostMode[i] == 0){ //net scared and scatter mode
+  }else if(!ghostChase){
     switch(i){
       case GHOST_RED:{
         targetX = (LEVEL_WIDTH-1) * 4;
@@ -492,8 +570,6 @@ void ghostAi(byte i){
         break;
       }
     }
-  }else{
-    //Scared mode TODO
   }
   
   /*screen.noStroke();
@@ -597,72 +673,231 @@ short dist(short x1, short y1, short x2, short y2){
 void drawGhost(byte i){
   screen.noStroke();
   
-  if(ghostMode[i] & 1){
-    screen.fill(0, 0, 255);
+  if(ghostScaredTime[i] > 0){
+    if(ghostScaredTime[i] < GHOST_TIME_FLASHING && ghostScaredTime[i] % 4 == 0){
+      screen.stroke(255, 255, 255);
+    }else{
+      screen.stroke(0, 0, 255);
+    }
   }else{
     switch(i){
       case GHOST_RED:{
-        screen.fill(255, 0, 0);
+        screen.stroke(255, 0, 0);
         break;
       }
       case GHOST_BLUE:{
-        screen.fill(0, 255, 255);
+        screen.stroke(0, 255, 255);
         break;
       }
       case GHOST_PINK:{
-        screen.fill(255, 127, 127);
+        screen.stroke(255, 127, 127);
         break;
       }
       case GHOST_ORANGE:{
-        screen.fill(255, 127, 0);
+        screen.stroke(255, 127, 0);
         break;
       }
     }
   }
   
-  screen.rect(ghostX[i], ghostY[i], 4, 4);
-  screen.stroke(0, 0, 0);
-  screen.point(ghostX[i], ghostY[i]);
-  screen.point(ghostX[i]+3, ghostY[i]);
-  screen.point(ghostX[i]+((tick>>4)&1), ghostY[i]+3);
-  screen.point(ghostX[i]+((tick>>4)&1)+2, ghostY[i]+3);
+  //screen.rect(ghostX[i], ghostY[i], 4, 4);
+  //screen.stroke(0, 0, 0);
+  
+  //screen.point(ghostX[i], ghostY[i]);
+  screen.point(ghostX[i]+1, ghostY[i]);
+  screen.point(ghostX[i]+2, ghostY[i]);
+  //screen.point(ghostX[i]+3, ghostY[i]);
+  screen.point(ghostX[i], ghostY[i]+1);
+  screen.point(ghostX[i]+1, ghostY[i]+1);
+  screen.point(ghostX[i]+2, ghostY[i]+1);
+  screen.point(ghostX[i]+3, ghostY[i]+1);
+  screen.point(ghostX[i], ghostY[i]+2);
+  screen.point(ghostX[i]+1, ghostY[i]+2);
+  screen.point(ghostX[i]+2, ghostY[i]+2);
+  screen.point(ghostX[i]+3, ghostY[i]+2);
+  //screen.point(ghostX[i], ghostY[i]+3);
+  //screen.point(ghostX[i]+1, ghostY[i]+3);
+  //screen.point(ghostX[i]+2, ghostY[i]+3);
+  //screen.point(ghostX[i]+3, ghostY[i]+3);
+  
+  screen.point(ghostX[i]+((tick>>4)%2), ghostY[i]+3);
+  screen.point(ghostX[i]+((tick>>4)%2)+2, ghostY[i]+3);
   
 }
 
 void drawPacman(){
+  if(pacFrame >= 9){
+    return;
+  }
   
   screen.noStroke();
-  screen.fill(COLOR_R_PACMAN, COLOR_G_PACMAN, COLOR_B_PACMAN);
-  screen.rect(pacX, pacY, 4, 4);
-  screen.stroke(0, 0, 0);
-  screen.point(pacX, pacY);
-  screen.point(pacX+3, pacY);
-  screen.point(pacX, pacY+3);
-  screen.point(pacX+3, pacY+3);
+  screen.stroke(COLOR_R_PACMAN, COLOR_G_PACMAN, COLOR_B_PACMAN);
+  //screen.rect(pacX, pacY, 4, 4);
+  //screen.stroke(0, 0, 0);
+  
+  //screen.point(pacX, pacY);
+  //screen.point(pacX+3, pacY);
+  //screen.point(pacX, pacY+3);
+  //screen.point(pacX+3, pacY+3);
+  
   
   switch(pacFrame){
-    case 2:{
-      if(pacX > pacLastX){
-        screen.point(pacX+2, pacY+1);
-        screen.point(pacX+3, pacY+1);
-        screen.point(pacX+2, pacY+2);
-        screen.point(pacX+3, pacY+2);
-      }else if(pacX < pacLastX){
+    case 0:
+    case 1:
+    case 3:
+    case 4:{
+        ////screen.point(pacX, pacY);
+        screen.point(pacX+1, pacY);
+        screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
         screen.point(pacX, pacY+1);
         screen.point(pacX+1, pacY+1);
+        screen.point(pacX+2, pacY+1);
+        screen.point(pacX+3, pacY+1);
         screen.point(pacX, pacY+2);
         screen.point(pacX+1, pacY+2);
-      }else if(pacY > pacLastY){
-        screen.point(pacX+1, pacY+2);
-        screen.point(pacX+1, pacY+3);
         screen.point(pacX+2, pacY+2);
+        screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        screen.point(pacX+1, pacY+3);
         screen.point(pacX+2, pacY+3);
-      }else if(pacY < pacLastY){
+        ////screen.point(pacX+3, pacY+3);
+        break;
+    }
+    case 2:{
+      if(pacX > pacLastX){
+        
+        ////screen.point(pacX, pacY);
         screen.point(pacX+1, pacY);
-        screen.point(pacX+1, pacY+1);
         screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
+        screen.point(pacX, pacY+1);
+        screen.point(pacX+1, pacY+1);
+        //screen.point(pacX+2, pacY+1);
+        //screen.point(pacX+3, pacY+1);
+        screen.point(pacX, pacY+2);
+        screen.point(pacX+1, pacY+2);
+        //screen.point(pacX+2, pacY+2);
+        //screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        screen.point(pacX+1, pacY+3);
+        screen.point(pacX+2, pacY+3);
+        ////screen.point(pacX+3, pacY+3);
+        
+        
+      }else if(pacX < pacLastX){
+        
+        ////screen.point(pacX, pacY);
+        screen.point(pacX+1, pacY);
+        screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
+        //screen.point(pacX, pacY+1);
+        //screen.point(pacX+1, pacY+1);
         screen.point(pacX+2, pacY+1);
+        screen.point(pacX+3, pacY+1);
+        //screen.point(pacX, pacY+2);
+        //screen.point(pacX+1, pacY+2);
+        screen.point(pacX+2, pacY+2);
+        screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        screen.point(pacX+1, pacY+3);
+        screen.point(pacX+2, pacY+3);
+        ////screen.point(pacX+3, pacY+3);
+        
+        
+      }else if(pacY > pacLastY){
+        
+        ////screen.point(pacX, pacY);
+        screen.point(pacX+1, pacY);
+        screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
+        screen.point(pacX, pacY+1);
+        screen.point(pacX+1, pacY+1);
+        screen.point(pacX+2, pacY+1);
+        screen.point(pacX+3, pacY+1);
+        screen.point(pacX, pacY+2);
+        //screen.point(pacX+1, pacY+2);
+        //screen.point(pacX+2, pacY+2);
+        screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        //screen.point(pacX+1, pacY+3);
+        //screen.point(pacX+2, pacY+3);
+        ////screen.point(pacX+3, pacY+3);
+        
+        
+      }else if(pacY < pacLastY){
+        
+        ////screen.point(pacX, pacY);
+        //screen.point(pacX+1, pacY);
+        //screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
+        screen.point(pacX, pacY+1);
+        //screen.point(pacX+1, pacY+1);
+        //screen.point(pacX+2, pacY+1);
+        screen.point(pacX+3, pacY+1);
+        screen.point(pacX, pacY+2);
+        screen.point(pacX+1, pacY+2);
+        screen.point(pacX+2, pacY+2);
+        screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        screen.point(pacX+1, pacY+3);
+        screen.point(pacX+2, pacY+3);
+        ////screen.point(pacX+3, pacY+3);
+        
+        
+      }else{
+        ////screen.point(pacX, pacY);
+        screen.point(pacX+1, pacY);
+        screen.point(pacX+2, pacY);
+        ////screen.point(pacX+3, pacY);
+        screen.point(pacX, pacY+1);
+        screen.point(pacX+1, pacY+1);
+        screen.point(pacX+2, pacY+1);
+        screen.point(pacX+3, pacY+1);
+        screen.point(pacX, pacY+2);
+        screen.point(pacX+1, pacY+2);
+        screen.point(pacX+2, pacY+2);
+        screen.point(pacX+3, pacY+2);
+        ////screen.point(pacX, pacY+3);
+        screen.point(pacX+1, pacY+3);
+        screen.point(pacX+2, pacY+3);
+        ////screen.point(pacX+3, pacY+3);
       }
+      break;
+    }
+    case 5:{
+      screen.point(pacX+2, pacY+1);
+      screen.point(pacX+3, pacY+1);
+      screen.point(pacX+2, pacY+2);
+      screen.point(pacX+3, pacY+2);
+    }
+    case 6:{
+      screen.point(pacX+2, pacY);
+      screen.point(pacX+2, pacY+3);
+    }
+    case 7:{
+      screen.point(pacX+1, pacY);
+      screen.point(pacX+1, pacY+3);
+    }
+    case 8:{
+      
+      ////screen.point(pacX, pacY);
+      //screen.point(pacX+1, pacY);
+      //screen.point(pacX+2, pacY);
+      ////screen.point(pacX+3, pacY);
+      //screen.point(pacX, pacY+1);
+      screen.point(pacX+1, pacY+1);
+      //screen.point(pacX+2, pacY+1);
+      //screen.point(pacX+3, pacY+1);
+      //screen.point(pacX, pacY+2);
+      screen.point(pacX+1, pacY+2);
+      //screen.point(pacX+2, pacY+2);
+      //screen.point(pacX+3, pacY+2);
+      ////screen.point(pacX, pacY+3);
+      //screen.point(pacX+1, pacY+3);
+      //screen.point(pacX+2, pacY+3);
+      ////screen.point(pacX+3, pacY+3);
+      break;
     }
   }
 }
@@ -778,12 +1013,13 @@ void drawTile(byte x, byte y){
 void printToScreen(int a, short x, short y){
   int p = -1;
   byte i;
-  for(i=0;p<a;i++){
+  int a2 = (a/10)+1;
+  for(i=0;p<a2;i++){
     p = pow(10, i);
   }
   short mx = (i-1)*4;
   p = -1;
-  for(i=0;p<a;i++){
+  for(i=0;p<a2;i++){
     p = pow(10, i);
     printDigit( (a/p)%10, x+mx-(4*i), y);
   }
