@@ -133,14 +133,15 @@ byte ghostDir[4] = {0, 0, 0, 0};
 byte ghostScaredTime[4] = {0, 0, 0, 0};
 bool ghostChase = false;
 
-unsigned int score = 0;
-unsigned int lastScore = 0;
-unsigned int dotsEaten = 0;
-byte lives = 0;
-byte lastLives = 0;
-unsigned int timer = 0;
-long lastMillis = 0;
-char deathTimer = -1;
+byte ghostKillStreak = 0;
+
+unsigned int score;
+unsigned int lastScore;
+unsigned int dotsEaten;
+byte lives;
+byte lastLives;
+unsigned int timer;
+char deathTimer;
 
 void setup() {
 
@@ -162,13 +163,12 @@ void setup() {
   screen.begin();
   screen.background(0, 0, 0);
   
-  
   drawMap();
   
   score = 0;
   lastScore = 255;
   dotsEaten = 0;
-  lives = 3;
+  lives = 2;
   lastLives = 0;
   deathTimer = -1;
   
@@ -267,7 +267,7 @@ void loop() {
     screen.fill(0, 0, 0);
     screen.rect((LEVEL_WIDTH*4)+2, 10, 4*7, 5);
     screen.stroke(255, 255, 255);
-    printToScreen(score, (LEVEL_WIDTH*4)+2, 10);
+    drawNumber(score, (LEVEL_WIDTH*4)+2, 10);
   }
   lastScore = score;
   
@@ -301,16 +301,16 @@ void loop() {
   
   if(tick % 5 == 0){
 
-    if(pacX == 0){
+    if(pacX == 0 && pacDir == DIR_LEFT){
       pacX = (LEVEL_WIDTH-1)*4;
-    }else if(pacX == (LEVEL_WIDTH-1)*4){
+    }else if(pacX == (LEVEL_WIDTH-1)*4 && pacDir == DIR_RIGHT){
       pacX = 0;
     }
     
     for(byte i = 0;i<4;i++){
-      if(ghostX[i] == 0){
+      if(ghostX[i] == 0 && pacDir == DIR_LEFT){
         ghostX[i] = (LEVEL_WIDTH-1)*4;
-      }else if(ghostX[i] == (LEVEL_WIDTH-1)*4){
+      }else if(ghostX[i] == (LEVEL_WIDTH-1)*4 && pacDir == DIR_RIGHT){
         ghostX[i] = 0;
       }
     }
@@ -359,6 +359,21 @@ void loop() {
         if(abs(pacX - ghostX[i]) < 2 && abs(pacY - ghostY[i]) < 2){
           if(ghostScaredTime[i] > 0){
             resetGhost(i);
+            ghostKillStreak++;
+            switch(ghostKillStreak){
+              case 1:{
+                score += 200;
+              }
+              case 2:{
+                score += 400;
+              }
+              case 3:{
+                score += 800;
+              }
+              case 4:{
+                score += 1600;
+              }
+            }
           }else{
             deathTimer = 20;
             pacFrame = 4;
@@ -392,13 +407,13 @@ void loop() {
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
       dotsEaten++;
-      score++;
+      score+=10;
     }
     
     if(tile(pacLastX >> 2, pacLastY >> 2) == TILE_POWER_PELLET){
       tile(pacLastX >> 2, pacLastY >> 2) = TILE_EMPTY;
-      
-      score += 5;
+      ghostKillStreak = 0;
+      score += 50;
       for(byte i=0;i<4;i++){
         ghostScaredTime[i] = GHOST_TIME_SCARED;
       }
@@ -454,8 +469,357 @@ void resetGhost(byte i){
 }
 
 void gameOver(){
+  screen.fill(0, 0, 0);
+  screen.stroke(255, 255, 0);
+  screen.rect(0, 0, WIDTH, HEIGHT);
+  short x = (WIDTH-(4*11))/2;
+  short y = (HEIGHT/2)+6;
+  
+  drawChar('P', x, y);x+=4;
+  drawChar('R', x, y);x+=4;
+  drawChar('E', x, y);x+=4;
+  drawChar('S', x, y);x+=4;
+  drawChar('S', x, y);x+=4;
+  x+=4;
+  drawChar('R', x, y);x+=4;
+  drawChar('E', x, y);x+=4;
+  drawChar('S', x, y);x+=4;
+  drawChar('E', x, y);x+=4;
+  drawChar('T', x, y);x+=4;
+  
+  x = (WIDTH-(4*9))/2;
+  y = (HEIGHT/2)-6;
+  
+  drawChar('G', x, y);x+=4;
+  drawChar('A', x, y);x+=4;
+  drawChar('M', x, y);x+=4;
+  drawChar('E', x, y);x+=4;
+  x+=4;
+  drawChar('O', x, y);x+=4;
+  drawChar('V', x, y);x+=4;
+  drawChar('E', x, y);x+=4;
+  drawChar('R', x, y);x+=4;
+  
+  
   while(true){
     
+  }
+}
+
+void drawChar(char c, short x, short y){
+  switch(c){
+    case 'A':{
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+2);
+      
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'E':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+2);
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'G':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'M':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y+1);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'O':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'P':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+2);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      break;
+    }
+    case 'R':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+2);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'S':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+4);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+2);
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case 'T':{
+      screen.point(x, y);
+      
+      screen.point(x+1, y);
+      screen.point(x+1, y+1);
+      screen.point(x+1, y+2);
+      screen.point(x+1, y+3);
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      break;
+    }
+    case 'V':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      
+      screen.point(x+1, y+4);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      break;
+    }
+    case '0':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      screen.point(x, y+3);
+      
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '1':{
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '2':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '3':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y+1);
+      
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '4':{
+      screen.point(x, y);
+      screen.point(x, y+1);
+      screen.point(x, y+2);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+1, y+2);
+      
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '5':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '6':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '7':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x+2, y);
+      screen.point(x+2, y+1);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '8':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      
+      screen.point(x, y+3);
+      screen.point(x+2, y+3);
+      
+      screen.point(x, y+4);
+      screen.point(x+1, y+4);
+      screen.point(x+2, y+4);
+      break;
+    }
+    case '9':{
+      screen.point(x, y);
+      screen.point(x+1, y);
+      screen.point(x+2, y);
+      
+      screen.point(x, y+1);
+      screen.point(x+2, y+1);
+      
+      screen.point(x, y+2);
+      screen.point(x+1, y+2);
+      screen.point(x+2, y+2);
+      screen.point(x+2, y+3);
+      screen.point(x+2, y+4);
+      break;
+    }
   }
 }
 
@@ -866,37 +1230,20 @@ void drawPacman(){
       break;
     }
     case 5:{
-      screen.point(pacX+2, pacY+1);
-      screen.point(pacX+3, pacY+1);
-      screen.point(pacX+2, pacY+2);
-      screen.point(pacX+3, pacY+2);
-    }
-    case 6:{
       screen.point(pacX+2, pacY);
       screen.point(pacX+2, pacY+3);
     }
-    case 7:{
+    case 6:{
       screen.point(pacX+1, pacY);
       screen.point(pacX+1, pacY+3);
     }
+    case 7:{
+      screen.point(pacX, pacY+1);
+      screen.point(pacX, pacY+2);
+    }
     case 8:{
-      
-      ////screen.point(pacX, pacY);
-      //screen.point(pacX+1, pacY);
-      //screen.point(pacX+2, pacY);
-      ////screen.point(pacX+3, pacY);
-      //screen.point(pacX, pacY+1);
       screen.point(pacX+1, pacY+1);
-      //screen.point(pacX+2, pacY+1);
-      //screen.point(pacX+3, pacY+1);
-      //screen.point(pacX, pacY+2);
       screen.point(pacX+1, pacY+2);
-      //screen.point(pacX+2, pacY+2);
-      //screen.point(pacX+3, pacY+2);
-      ////screen.point(pacX, pacY+3);
-      //screen.point(pacX+1, pacY+3);
-      //screen.point(pacX+2, pacY+3);
-      ////screen.point(pacX+3, pacY+3);
       break;
     }
   }
@@ -1010,7 +1357,7 @@ void drawTile(byte x, byte y){
   
 }
 
-void printToScreen(int a, short x, short y){
+void drawNumber(int a, short x, short y){
   int p = -1;
   byte i;
   int a2 = (a/10)+1;
@@ -1021,172 +1368,7 @@ void printToScreen(int a, short x, short y){
   p = -1;
   for(i=0;p<a2;i++){
     p = pow(10, i);
-    printDigit( (a/p)%10, x+mx-(4*i), y);
-  }
-}
-
-void printDigit(byte a, short x, short y){
-  switch(a){
-    case 0:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x, y+1);
-      screen.point(x, y+2);
-      screen.point(x, y+3);
-      
-      screen.point(x+2, y+1);
-      screen.point(x+2, y+2);
-      screen.point(x+2, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 1:{
-      screen.point(x+2, y);
-      screen.point(x+2, y+1);
-      screen.point(x+2, y+2);
-      screen.point(x+2, y+3);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 2:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x+2, y+1);
-      
-      screen.point(x, y+2);
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      
-      screen.point(x, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 3:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x+2, y+1);
-      
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      
-      screen.point(x+2, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 4:{
-      screen.point(x, y);
-      screen.point(x, y+1);
-      screen.point(x, y+2);
-      
-      screen.point(x+2, y);
-      screen.point(x+2, y+1);
-      screen.point(x+2, y+2);
-      
-      screen.point(x+1, y+2);
-      
-      screen.point(x+2, y+3);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 5:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x, y+1);
-      
-      screen.point(x, y+2);
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      
-      screen.point(x+2, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 6:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x, y+1);
-      
-      screen.point(x, y+2);
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      
-      screen.point(x, y+3);
-      screen.point(x+2, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 7:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x+2, y);
-      screen.point(x+2, y+1);
-      screen.point(x+2, y+2);
-      screen.point(x+2, y+3);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 8:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x, y+1);
-      screen.point(x+2, y+1);
-      
-      screen.point(x, y+2);
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      
-      screen.point(x, y+3);
-      screen.point(x+2, y+3);
-      
-      screen.point(x, y+4);
-      screen.point(x+1, y+4);
-      screen.point(x+2, y+4);
-      break;
-    }
-    case 9:{
-      screen.point(x, y);
-      screen.point(x+1, y);
-      screen.point(x+2, y);
-      
-      screen.point(x, y+1);
-      screen.point(x+2, y+1);
-      
-      screen.point(x, y+2);
-      screen.point(x+1, y+2);
-      screen.point(x+2, y+2);
-      screen.point(x+2, y+3);
-      screen.point(x+2, y+4);
-      break;
-    }
+    drawChar( '0'+((a/p)%10), x+mx-(4*i), y);
   }
 }
 

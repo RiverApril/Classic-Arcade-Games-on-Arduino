@@ -6,8 +6,8 @@
 #define DC   9
 #define RESET  8
 
-#define PIN_BUTTON_LEFT 7
-#define PIN_BUTTON_MIDDLE 6
+#define PIN_BUTTON_LEFT 4
+#define PIN_BUTTON_MIDDLE 3
 #define PIN_BUTTON_RIGHT 5
 
 #define PIN_SPEAKER 3
